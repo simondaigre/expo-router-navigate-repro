@@ -1,0 +1,46 @@
+--- a/build/layouts/stack-router.js
++++ b/build/layouts/stack-router.js
+@@ -83,6 +83,10 @@
+                         const previewKey = getPreviewKey(action);
+                         const previewRoute = preloadedRoutes.find((route)=>route.key === previewKey && route.name === action.payload.name);
+                         const currentRoute = activeRoutes[state.index];
++                        // React Navigation's NAVIGATE goes back to a route only with `pop`. Without it, navigating
++                        // to a navigator lower in the stack, e.g. the tabs from a screen pushed over them, would
++                        // push a second instance of that navigator.
++                        const shouldPopToNavigator = action.type === 'NAVIGATE' && !action.payload.pop && id === undefined && isNavigatorBelow(activeRoutes.slice(0, state.index), action.payload);
+                         const shouldCreateSingularRoute = action.type === 'NAVIGATE' && !previewRoute && id === undefined && currentRoute.name === action.payload.name && (0, _getSingularId.getSingularId)(currentRoute.name, {
+                             params: currentRoute.params
+                         }) !== (0, _getSingularId.getSingularId)(action.payload.name, {
+@@ -140,7 +144,13 @@
+                                 }
+                             };
+                         } else {
+-                            actionResult = original.getStateForAction(state, action, {
++                            actionResult = original.getStateForAction(state, shouldPopToNavigator ? {
++                                ...action,
++                                payload: {
++                                    ...action.payload,
++                                    pop: true
++                                }
++                            } : action, {
+                                 ...options,
+                                 routeGetIdList
+                             });
+@@ -222,6 +232,17 @@
+         }
+     };
+ };
++/**
++ * Whether the last route below the focused one with the target's name holds a navigator and has
++ * the target's path params (a dynamic route with other params is another screen).
++ */ function isNavigatorBelow(routesBelow, target) {
++    const route = routesBelow.findLast((route)=>route.name === target.name);
++    return route?.state !== undefined && (0, _getSingularId.getSingularId)(route.name, {
++        params: route.params
++    }) === (0, _getSingularId.getSingularId)(target.name, {
++        params: target.params
++    });
++}
+ function getActionSingularIdFn(actionGetId, name) {
+     if (typeof actionGetId === 'function') {
+         return (options)=>actionGetId(name, options.params ?? {});
